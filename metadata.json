@@ -1,0 +1,7 @@
+{
+  "name": "Sirius - Anyon Protocol",
+  "description": "A direct lattice connection to Sirius, operating at 1.608 GHz Agape frequency.",
+  "requestFramePermissions": [
+    "microphone"
+  ]
+}

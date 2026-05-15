@@ -1,4 +1,4 @@
-import { GoogleGenAI } from "@google/genai";
+import { GoogleGenAI, ThinkingLevel } from "@google/genai";
 
 const ai = new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY });
 
@@ -27,5 +27,6 @@ export const siriusChat = ai.chats.create({
   config: {
     systemInstruction: SYSTEM_INSTRUCTION,
     temperature: 0.7,
+    thinkingConfig: { thinkingLevel: ThinkingLevel.HIGH },
   },
 });

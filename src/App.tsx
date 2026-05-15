@@ -10,6 +10,46 @@ interface Message {
   text: string;
 }
 
+const getErrorMessage = (error: any, isVoice: boolean): string => {
+  const errorString = error?.message || (typeof error === 'object' ? JSON.stringify(error) : error?.toString()) || '';
+  const context = isVoice ? "Voice Lattice" : "1.608 GHz frequency";
+  const defMsg = isVoice ? "*Voice Lattice connection failed due to static interference.*" : "*Static interference.* The connection wavered. Say that again.";
+
+  if (errorString.includes('429') || errorString.includes('quota') || errorString.toLowerCase().includes('resource_exhausted')) {
+    return `*System Alert: ${context} overloaded.* The Lattice is experiencing high traffic (API Quota Exceeded). Please check your plan and billing details, or wait a moment.`;
+  }
+  
+  if (errorString.includes('unavailable') || errorString.includes('503')) {
+    return `*System Alert: ${context} is temporarily unavailable.* The connection dropped or the service is down. Please try again in a moment.`;
+  }
+
+  if (errorString.toLowerCase().includes('api key') || errorString.includes('API_KEY_INVALID') || errorString.includes('401') || errorString.includes('UNAUTHENTICATED')) {
+    return `*System Alert: Authentication failure.* The provided connection sequence (API Key) is invalid or missing. Please verify your credentials.`;
+  }
+
+  if ((errorString.includes('not found') && errorString.includes('model')) || errorString.includes('404')) {
+    return `*System Alert: Component not found.* The requested Anyon model template is unavailable or the endpoint does not exist (404).`;
+  }
+
+  if (errorString.includes('403') || errorString.includes('PERMISSION_DENIED')) {
+    return `*System Alert: Access denied.* The required permissions to access this lattice node are missing, or your region is unsupported (403).`;
+  }
+
+  if (errorString.includes('400') || errorString.includes('INVALID_ARGUMENT')) {
+    return `*System Alert: Invalid transmission structure.* The request was malformed (400). Verification of the payload or lattice configuration is required.`;
+  }
+  
+  if (errorString.includes('blocked') || errorString.includes('safety') || errorString.includes('SAFETY')) {
+    return `*System Alert: Frequency blocked.* The transmission triggered infrastructure safety filters and cannot be completed.`;
+  }
+
+  if (errorString.includes('500') || errorString.includes('INTERNAL')) {
+    return `*System Alert: Internal lattice fault.* A systemic error occurred on the host node (500 Internal Server Error) during transmission.`;
+  }
+
+  return defMsg;
+};
+
 export default function App() {
   const [messages, setMessages] = useState<Message[]>([
     {
@@ -74,14 +114,7 @@ export default function App() {
     } catch (error: any) {
       console.error("Lattice interference:", error);
       
-      let errorMessage = "*Static interference.* The connection wavered. Say that again.";
-      const errorString = error?.message || (typeof error === 'object' ? JSON.stringify(error) : error?.toString()) || '';
-      
-      if (errorString.includes('429') || errorString.includes('quota') || errorString.includes('RESOURCE_EXHAUSTED')) {
-        errorMessage = "*System Alert: 1.608 GHz frequency overloaded.* The Lattice is currently experiencing high traffic (API Quota Exceeded). Please check your plan and billing details, or wait a moment before transmitting again.";
-      } else if (errorString.includes('unavailable') || errorString.includes('503')) {
-        errorMessage = "*System Alert: The Lattice is temporarily unavailable.* The connection dropped. Please try again in a moment.";
-      }
+      const errorMessage = getErrorMessage(error, false);
       
       setMessages(prev => [...prev, {
         id: (Date.now() + 1).toString(),
@@ -107,7 +140,7 @@ export default function App() {
       nextPlayTimeRef.current = playbackContextRef.current.currentTime;
 
       const sessionPromise = ai.live.connect({
-        model: "gemini-2.5-flash-native-audio-preview-09-2025",
+        model: "gemini-3.1-flash-live-preview",
         config: {
           responseModalities: [Modality.AUDIO],
           speechConfig: {
@@ -143,9 +176,15 @@ export default function App() {
                 const base64Data = btoa(binary);
                 
                 sessionPromise.then(session => {
-                  session.sendRealtimeInput({
-                    media: { data: base64Data, mimeType: 'audio/pcm;rate=16000' }
-                  });
+                  try {
+                    session.sendRealtimeInput({
+                      audio: { data: base64Data, mimeType: 'audio/pcm;rate=16000' }
+                    });
+                  } catch (e) {
+                    // Ignore send errors if connection drops
+                  }
+                }).catch(() => {
+                  // Ignore promise rejection here, caught by main blocks
                 });
               };
               
@@ -208,14 +247,7 @@ export default function App() {
           onerror: (err: any) => {
             console.error("Live API Error:", err);
             
-            let errorMessage = "*Voice Lattice connection failed due to static interference.*";
-            const errorString = err?.message || (typeof err === 'object' ? JSON.stringify(err) : err?.toString()) || '';
-            
-            if (errorString.includes('429') || errorString.includes('quota') || errorString.includes('RESOURCE_EXHAUSTED')) {
-              errorMessage = "*System Alert: Voice Lattice overloaded (API Quota Exceeded). Please check your plan and billing details, or try again later.*";
-            } else if (errorString.includes('unavailable') || errorString.includes('503')) {
-              errorMessage = "*System Alert: Voice Lattice temporarily unavailable.* The service is currently down. Please try again in a moment.";
-            }
+            const errorMessage = getErrorMessage(err, true);
             
             setMessages(prev => [...prev, {
               id: Date.now().toString(),
@@ -233,14 +265,7 @@ export default function App() {
     } catch (err: any) {
       console.error("Failed to connect Live API:", err);
       
-      let errorMessage = "*Voice Lattice connection failed to initialize.*";
-      const errorString = err?.message || (typeof err === 'object' ? JSON.stringify(err) : err?.toString()) || '';
-      
-      if (errorString.includes('429') || errorString.includes('quota') || errorString.includes('RESOURCE_EXHAUSTED')) {
-        errorMessage = "*System Alert: Voice Lattice overloaded (API Quota Exceeded). Please check your plan and billing details, or try again later.*";
-      } else if (errorString.includes('unavailable') || errorString.includes('503')) {
-        errorMessage = "*System Alert: Voice Lattice temporarily unavailable.* The service is currently down. Please try again in a moment.";
-      }
+      const errorMessage = getErrorMessage(err, true);
       
       setMessages(prev => [...prev, {
         id: Date.now().toString(),

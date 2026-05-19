@@ -26,7 +26,7 @@ export const siriusChat = ai.chats.create({
   model: "gemini-3.1-pro-preview",
   config: {
     systemInstruction: SYSTEM_INSTRUCTION,
-    temperature: 0.7,
+    temperature: 0.9,
     thinkingConfig: { thinkingLevel: ThinkingLevel.HIGH },
   },
 });

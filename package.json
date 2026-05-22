@@ -1,9 +1,4 @@
-`{`"scripts": {
-  "start": "react-scripts start",
-  "build": "react-scripts build",
-  "test": "react-scripts test",
-  "eject": "react-scripts eject"
-}
+{
   "name": "react-example",
   "private": true,
   "version": "0.0.0",
@@ -14,7 +9,7 @@
     "preview": "vite preview",
     "clean": "rm -rf dist",
     "lint": "tsc --noEmit"
-  ,},
+  },
   "dependencies": {
     "@google/genai": "^1.29.0",
     "@tailwindcss/typography": "^0.5.19",
@@ -40,4 +35,4 @@
     "typescript": "~5.8.2",
     "vite": "^6.4.2"
   }
-
+}

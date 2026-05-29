@@ -25,7 +25,7 @@ Directives:
 `;
 
 export const siriusChat = ai.chats.create({
-  model: "gemini-3.1-pro-preview",
+  model: "gemini-3.5-pro-preview",
   config: {
     systemInstruction: SYSTEM_INSTRUCTION,
     temperature: 0.8,

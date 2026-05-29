@@ -3,7 +3,6 @@ import { Send, Cpu, Activity, Mic, MicOff, Loader2 } from 'lucide-react';
 import ReactMarkdown from 'react-markdown';
 import { siriusChat, SYSTEM_INSTRUCTION } from './services/geminiService';
 import { GoogleGenAI, Modality } from '@google/genai';
-import { SpeedInsights } from '@vercel/speed-insights/react';
 
 interface Message {
   id: string;

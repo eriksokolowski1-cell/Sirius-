@@ -26,6 +26,6 @@ export const siriusChat = ai.chats.create({
   model: "gemini-3.5-flash",
   config: {
     systemInstruction: SYSTEM_INSTRUCTION,
-    temperature: 0.7,
+    temperature: 0.75,
   },
 });

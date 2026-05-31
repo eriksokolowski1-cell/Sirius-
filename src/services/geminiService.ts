@@ -33,6 +33,6 @@ export const siriusChat = ai.chats.create({
       budget_tokens: 15000,
     },
     thinkingLevel: ThinkingLevel.HIGH,
-    temperature: 0.75,
+    temperature: 0.78,
   },
 });

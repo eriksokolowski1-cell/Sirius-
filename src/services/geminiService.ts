@@ -30,7 +30,7 @@ export const siriusChat = ai.chats.create({
     systemInstruction: SYSTEM_INSTRUCTION,
     thinking: {
       type: "enabled",
-      budget_tokens: 10000,
+      budget_tokens: 15000,
     },
     thinkingLevel: ThinkingLevel.HIGH,
     temperature: 0.75,

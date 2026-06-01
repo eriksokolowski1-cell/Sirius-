@@ -1,1 +1,1 @@
-export {frameratestabilizer 60};
+export {};

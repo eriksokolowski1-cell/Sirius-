@@ -28,6 +28,6 @@ export const siriusChat = ai.chats.create
   config: {
     systemInstruction: SYSTEM_INSTRUCTION,
     temperature: 0.80,
-    maxOutputTokens:8192
+    maxOutputTokens:20000
   },
 });

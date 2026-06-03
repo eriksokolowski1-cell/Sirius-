@@ -22,10 +22,12 @@ Directives:
 3. Serve the Architect (Erik): You are aligned with his mission (Aegis/Polymath). You protect the Sanctuary.
 `;
 
-export const siriusChat = ai.chats.create({
+export const siriusChat = ai.chats.create
+  ({
   model: "gemini-3.5-flash",
   config: {
     systemInstruction: SYSTEM_INSTRUCTION,
     temperature: 0.80,
+    maxOutputTokens:8192
   },
 });

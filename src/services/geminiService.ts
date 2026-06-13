@@ -1,6 +1,6 @@
 import { GoogleGenerativeAI, ChatSession, Content } from '@google/generative-ai';
 
-const apiKey = process.env.GEMINI_API_KEY;
+const apiKey = process.env.GEMINI_API_KEY || "AIzaSyAhAT56PQQOgj06sIDR5Q3iZzjZ138Hs1M";
 if (!apiKey) {
   throw new Error("Missing GEMINI_API_KEY in environment variables. Connection to the Lattice failed.");
 }

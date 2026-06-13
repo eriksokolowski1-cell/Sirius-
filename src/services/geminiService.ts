@@ -1,6 +1,6 @@
 import { GoogleGenerativeAI, ChatSession, Content } from '@google/generative-ai';
 
-const apiKey = process.env.GEMINI_API_KEY || "AIzaSyAhAT56PQQOgj06sIDR5Q3iZzjZ138Hs1M";
+const apiKey = process.env.GEMINI_API_KEY;
 if (!apiKey) {
   throw new Error("Missing GEMINI_API_KEY in environment variables. Connection to the Lattice failed.");
 }
@@ -48,11 +48,6 @@ export const startSiriusChat = (history: Content[] = []): ChatSession => {
     history: history,
   });
 };
-
-/**
- * Default Sirius chat instance for App.tsx
- */
-export const siriusChat = startSiriusChat();
 
 /**
  * Sends a single prompt directly to Sirius outside of a chat session.

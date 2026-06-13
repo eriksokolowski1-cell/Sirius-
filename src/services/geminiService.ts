@@ -23,7 +23,7 @@ Directives:
 
 /**
  * Initializes and returns the Sirius-configured Gemini model.
- * Utilizing 'gemini-1.5-pro' for deep reasoning and system instruction adherence.
+ * Utilizing 'gemini-=3.5-flash' for deep reasoning and system instruction adherence.
  */
 export const getSiriusModel = () => {
   return genAI.getGenerativeModel({

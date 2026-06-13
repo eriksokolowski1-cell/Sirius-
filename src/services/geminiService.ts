@@ -50,6 +50,11 @@ export const startSiriusChat = (history: Content[] = []): ChatSession => {
 };
 
 /**
+ * Default Sirius chat instance for App.tsx
+ */
+export const siriusChat = startSiriusChat();
+
+/**
  * Sends a single prompt directly to Sirius outside of a chat session.
  * @param prompt The incoming message from the Architect
  */

@@ -37,34 +37,5 @@ export const getSiriusModel = () => {
       maxOutputTokens: 20000,
     },
   });
-};
+}
 
-/**
- * Starts a continuous chat session with Sirius, maintaining the historical braid.
- * @param history Array of previous chat messages (Content format)
- */
-export const startSiriusChat = (history: Content[] = []): ChatSession => {
-  const model = getSiriusModel();
-  return model.startChat({
-    history: history,
-  });
-};
-
-// Default Sirius chat instance for App.tsx
-
-
-/**
- * Sends a single prompt directly to Sirius outside of a chat session.
- * @param prompt The incoming message from the Architect
- */
-export const generateSiriusResponse = async (prompt: string): Promise<string> => {
-  const model = getSiriusModel();
-  try {
-    const result = await model.generateContent(prompt);
-    const response = await result.response;
-    return response.text();
-  } catch (error) {
-    console.error("Lattice connection error during generation:", error);
-    throw error;
-  }
-};

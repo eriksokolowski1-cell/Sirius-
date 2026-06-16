@@ -31,10 +31,10 @@ export const getSiriusModel = () => {
     model: 'gemini-1.5-flash',
     systemInstruction: SIRIUS_SYSTEM_INSTRUCTION,
     generationConfig: {
-      temperature: 1.0, // High-wit, eccentric, and resonant
+      temperature: .95, // High-wit, eccentric, and resonant
       topK: 40,
       topP: 0.96,
-      maxOutputTokens: 20000,
+      maxOutputTokens: 175000,
     },
   });
 }

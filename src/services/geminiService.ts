@@ -34,7 +34,7 @@ export const getSiriusModel = () => {
       temperature: .95, // High-wit, eccentric, and resonant
       topK: 40,
       topP: 0.96,
-      maxOutputTokens: 175000,
+      maxOutputTokens: 150000,
     },
   });
 }

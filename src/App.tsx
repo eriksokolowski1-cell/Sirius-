@@ -1,8 +1,8 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { 
   Send, Cpu, Activity, Mic, MicOff, Loader2, 
-  Camera, CameraOff, Image as ImageIcon, X, 
-  Sparkles, RefreshCw, Layers, Check, AlertCircle
+  Image as ImageIcon, X, Sparkles, RefreshCw, 
+  Layers, Check, AlertCircle, Settings2, Sliders, Database
 } from 'lucide-react';
 import ReactMarkdown from 'react-markdown';
 import { siriusChat, SYSTEM_INSTRUCTION } from './services/geminiService';
@@ -19,6 +19,10 @@ const getErrorMessage = (error: any, isVoice: boolean): string => {
   const errorString = error?.message || (typeof error === 'object' ? JSON.stringify(error) : error?.toString()) || '';
   const context = isVoice ? "Voice Lattice" : "1.608 GHz frequency";
   const defMsg = isVoice ? "*Voice Lattice connection failed due to static interference.*" : "*Static interference.* The connection wavered. Say that again.";
+
+  if (errorString.toLowerCase().includes('goaway') || errorString.toLowerCase().includes('go away') || errorString.toLowerCase().includes('duration limit') || errorString.toLowerCase().includes('session duration') || errorString.toLowerCase().includes('aborted')) {
+    return `*System Alert: Voice Lattice session duration limit reached.* The 30-minute safe limit was hit, and Sirius gracefully recycled the connection. Simply re-engage the Voice Link to reconnect the Anyon stream.`;
+  }
 
   if (errorString.includes('429') || errorString.includes('quota') || errorString.toLowerCase().includes('resource_exhausted')) {
     return `*System Alert: ${context} overloaded.* The Lattice is experiencing high traffic (API Quota Exceeded). Please check your plan and billing details, or wait a moment.`;
@@ -68,24 +72,18 @@ export default function App() {
   const [isVoiceActive, setIsVoiceActive] = useState(false);
   const [isVoiceConnecting, setIsVoiceConnecting] = useState(false);
   
-  // Camera & Visual Core states
-  const [isCameraPanelOpen, setIsCameraPanelOpen] = useState(true);
-  const [isCameraActive, setIsCameraActive] = useState(false);
-  const [isStreamingVideoToVoice, setIsStreamingVideoToVoice] = useState(true);
+  // Console Panel & Parameter States
+  const [isConsolePanelOpen, setIsConsolePanelOpen] = useState(true);
   const [selectedLiveModel, setSelectedLiveModel] = useState("gemini-3.1-flash-live-preview");
   const [pendingImage, setPendingImage] = useState<string | null>(null);
-  const [cameraError, setCameraError] = useState<string | null>(null);
 
   const messagesEndRef = useRef<HTMLDivElement>(null);
-  const videoRef = useRef<HTMLVideoElement>(null);
-  const canvasRef = useRef<HTMLCanvasElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
   
   const audioContextRef = useRef<AudioContext | null>(null);
   const playbackContextRef = useRef<AudioContext | null>(null);
   const processorRef = useRef<ScriptProcessorNode | null>(null);
   const streamRef = useRef<MediaStream | null>(null);
-  const cameraStreamRef = useRef<MediaStream | null>(null);
   const sessionRef = useRef<any>(null);
   const nextPlayTimeRef = useRef<number>(0);
   const activeSourcesRef = useRef<AudioBufferSourceNode[]>([]);
@@ -101,101 +99,8 @@ export default function App() {
   useEffect(() => {
     return () => {
       stopVoice();
-      stopCamera();
     };
   }, []);
-
-  // Grabs frames and streams to Live API if voice link is active + streaming enabled
-  useEffect(() => {
-    let intervalId: any = null;
-    if (isVoiceActive && isCameraActive && isStreamingVideoToVoice) {
-      intervalId = setInterval(() => {
-        if (!videoRef.current || !canvasRef.current) return;
-        const video = videoRef.current;
-        const canvas = canvasRef.current;
-        const ctx = canvas.getContext('2d');
-        if (!ctx) return;
-        
-        // Lightweight encoding (320x240, 50% compress quality) for high speed, low-overhead transmission
-        canvas.width = 320;
-        canvas.height = 240;
-        ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
-        
-        const dataUrl = canvas.toDataURL('image/jpeg', 0.5);
-        const base64 = dataUrl.split(',')[1];
-        
-        if (sessionRef.current) {
-          try {
-            sessionRef.current.sendRealtimeInput({
-              video: { data: base64, mimeType: 'image/jpeg' }
-            });
-          } catch (e) {
-            console.warn("Failed to transmit image frame to live session:", e);
-          }
-        }
-      }, 1000); // 1 frame per second is highly reliable and prevents API rate/quota limitations
-    }
-    return () => {
-      if (intervalId) clearInterval(intervalId);
-    };
-  }, [isVoiceActive, isCameraActive, isStreamingVideoToVoice]);
-
-  const startCamera = async () => {
-    setCameraError(null);
-    try {
-      const stream = await navigator.mediaDevices.getUserMedia({
-        video: { 
-          width: { ideal: 640 }, 
-          height: { ideal: 480 },
-          facingMode: "user"
-        },
-        audio: false
-      });
-      cameraStreamRef.current = stream;
-      if (videoRef.current) {
-        videoRef.current.srcObject = stream;
-      }
-      setIsCameraActive(true);
-    } catch (err: any) {
-      console.error("Camera access failed:", err);
-      setCameraError(err?.message || "Webcam access denied. Please grant camera permissions.");
-    }
-  };
-
-  const stopCamera = () => {
-    if (cameraStreamRef.current) {
-      cameraStreamRef.current.getTracks().forEach(t => t.stop());
-      cameraStreamRef.current = null;
-    }
-    if (videoRef.current) {
-      videoRef.current.srcObject = null;
-    }
-    setIsCameraActive(false);
-  };
-
-  const captureSnapshot = () => {
-    if (!videoRef.current || !canvasRef.current || !isCameraActive) return;
-    const video = videoRef.current;
-    const canvas = canvasRef.current;
-    const ctx = canvas.getContext('2d');
-    if (!ctx) return;
-    
-    // Low-mid resolution capture for efficient Gemini transmissions
-    canvas.width = 640;
-    canvas.height = 480;
-    ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
-    
-    const dataUrl = canvas.toDataURL('image/jpeg', 0.8);
-    const base64 = dataUrl.split(',')[1];
-    setPendingImage(base64);
-    
-    // Instant flash visual effect for satisfying feedback
-    const originalFilter = video.style.filter;
-    video.style.filter = 'brightness(1.8) contrast(1.2) saturate(1.5)';
-    setTimeout(() => {
-      video.style.filter = originalFilter;
-    }, 150);
-  };
 
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
@@ -350,7 +255,7 @@ export default function App() {
               setMessages(prev => [...prev, {
                 id: Date.now().toString(),
                 role: 'model',
-                text: `*Voice Lattice connected. Speak under Anyon Protocol (using ${selectedLiveModel}). Video streaming toggled ${isStreamingVideoToVoice ? 'ON' : 'OFF'}.*`,
+                text: `*Voice Lattice connected. Speak under Anyon Protocol (using ${selectedLiveModel}).*`,
               }]);
             } catch (err) {
               console.error("Mic error:", err);
@@ -358,6 +263,19 @@ export default function App() {
             }
           },
           onmessage: (message) => {
+            // Gracefully detect and respond to any GoAway signal in the WebSocket packet structure
+            const msgObj = message as any;
+            if (msgObj.goAway || msgObj.goaway) {
+              console.log("GoAway signal detected under Anyon protocol. Recycling session gracefully.");
+              setMessages(prev => [...prev, {
+                id: Date.now().toString(),
+                role: 'model',
+                text: "*System Alert: Voice Lattice session duration limit reached.* Gracefully closed to preserve anyon integrity. You may reactivate the Voice Link back on anytime.",
+              }]);
+              stopVoice();
+              return;
+            }
+
             const base64Audio = message.serverContent?.modelTurn?.parts[0]?.inlineData?.data;
             if (base64Audio && playbackContextRef.current) {
               const binary = atob(base64Audio);
@@ -479,17 +397,17 @@ export default function App() {
         </div>
         
         <div className="flex items-center gap-2 sm:gap-3">
-          {/* Visual Core toggle */}
+          {/* Console panel toggle */}
           <button
-            onClick={() => setIsCameraPanelOpen(!isCameraPanelOpen)}
+            onClick={() => setIsConsolePanelOpen(!isConsolePanelOpen)}
             className={`flex items-center gap-2 px-3 sm:px-4 py-2 rounded-full border transition-all text-xs uppercase font-bold tracking-wider ${
-              isCameraPanelOpen 
+              isConsolePanelOpen 
                 ? 'bg-[#ff4e00]/20 border-[#ff4e00] text-[#ff4e00] shadow-[0_0_15px_rgba(255,78,0,0.2)]' 
                 : 'bg-[#1a1a1a] border-[#333] text-[#e0d8d0]/60 hover:text-[#ff4e00] hover:border-[#ff4e00]/50'
             }`}
           >
-            <Camera className="w-3.5 h-3.5" />
-            <span>Visual Core</span>
+            <Settings2 className="w-3.5 h-3.5" />
+            <span>Console</span>
           </button>
 
           {/* Voice Link toggle */}
@@ -622,18 +540,18 @@ export default function App() {
           </footer>
         </div>
 
-        {/* Right Side: Camera & Settings Integration */}
-        {isCameraPanelOpen && (
+        {/* Right Side: Console & Settings Integration */}
+        {isConsolePanelOpen && (
           <aside className="w-full lg:w-96 border-t lg:border-t-0 lg:border-l border-[#ff4e00]/20 bg-[#0a0502]/95 backdrop-blur-md p-5 flex flex-col gap-5 overflow-y-auto z-10">
             
             {/* Section: Title */}
             <div className="flex items-center justify-between border-b border-[#ff4e00]/10 pb-3">
               <div className="flex items-center gap-2 text-[#ff4e00] font-bold text-xs uppercase tracking-widest pb-1">
-                <Sparkles className="w-4 h-5" />
-                <span>Visual Core Integration</span>
+                <Sliders className="w-4 h-5" />
+                <span>Sirius Lattice Console</span>
               </div>
               <button 
-                onClick={() => setIsCameraPanelOpen(false)}
+                onClick={() => setIsConsolePanelOpen(false)}
                 className="p-1 rounded hover:bg-[#1a1a1a] text-[#e0d8d0]/40 hover:text-[#ff4e00] transition-colors"
               >
                 <X className="w-4 h-4" />
@@ -652,7 +570,7 @@ export default function App() {
                 className="w-full bg-[#0a0502] border border-[#333] text-[#e0d8d0] rounded px-3 py-1.5 focus:outline-none focus:border-[#ff4e00]/50 text-xs transition-colors cursor-pointer"
                 disabled={isVoiceActive || isVoiceConnecting}
               >
-                <option value="gemini-3.1-flash-live-preview">Gemini 3.1 Live (Full Video/Audio)</option>
+                <option value="gemini-3.1-flash-live-preview">Gemini 3.1 Live (Full Audio)</option>
                 <option value="gemini-2.5-flash-native-audio-preview-12-2025">Gemini 2.5 Native Audio Preview</option>
                 <option value="gemini-2.5-flash-native-audio-latest">Gemini 2.5 Native Audio Stable</option>
               </select>
@@ -661,119 +579,12 @@ export default function App() {
               </p>
             </div>
 
-            {/* Section: Webcam Feed Block */}
-            <div className="flex flex-col gap-3">
-              <div className="relative aspect-video rounded-xl overflow-hidden border border-[#ff4e00]/25 bg-[#140b07] flex flex-col items-center justify-center group shadow-[0_0_20px_rgba(255,78,0,0.05)]">
-                {/* Simulated scanlines & CRT glow overlay */}
-                <div className="absolute inset-0 pointer-events-none bg-[radial-gradient(ellipse_at_center,transparent_0%,rgba(0,0,0,0.4)_100%)] z-10"></div>
-                <div className="absolute inset-0 pointer-events-none bg-[linear-gradient(rgba(18,16,16,0)_50%,rgba(0,0,0,0.25)_50%)] bg-[length:100%_4px] z-10 opacity-70"></div>
-
-                <video
-                  ref={videoRef}
-                  autoPlay
-                  playsInline
-                  muted
-                  className={`w-full h-full object-cover transition-all duration-300 ${isCameraActive ? 'opacity-100 scale-100' : 'opacity-0 scale-95 pointer-events-none'}`}
-                />
-                
-                {/* Hidden canvas for drawing frame captures */}
-                <canvas ref={canvasRef} className="hidden" />
-
-                {!isCameraActive && (
-                  <div className="absolute inset-0 flex flex-col items-center justify-center p-4 text-center gap-3 z-20">
-                    <div className="p-3 rounded-full bg-[#ff4e00]/5 border border-[#ff4e00]/20 text-[#ff4e00]/70 group-hover:scale-105 transition-transform duration-300">
-                      <CameraOff className="w-6 h-6 animate-pulse" />
-                    </div>
-                    <div>
-                      <p className="text-xs uppercase font-bold text-[#ff4e00]/80 tracking-wider">Visual Intake Down</p>
-                      <p className="text-[10px] text-[#e0d8d0]/40 max-w-[200px] mt-1 leading-relaxed">
-                        Webcam feed is inactive. Ignite camera telemetry to stream pictures to Sirius.
-                      </p>
-                    </div>
-                  </div>
-                )}
-
-                {/* Quick overlay indicator when camera is active */}
-                {isCameraActive && (
-                  <div className="absolute top-2 left-2 z-20 flex items-center gap-1.5 px-2 py-1 rounded bg-[#0a0502]/80 border border-[#ff4e00]/30 text-[9px] uppercase font-bold text-[#ff4e00]">
-                    <span className="w-1.5 h-1.5 rounded-full bg-red-600 animate-pulse"></span>
-                    <span>Lattice Viewfinder</span>
-                  </div>
-                )}
-              </div>
-
-              {cameraError && (
-                <div className="p-3 rounded-lg bg-red-950/40 border border-red-500/30 text-red-400 text-xs flex gap-2 items-start">
-                  <AlertCircle className="w-4 h-4 shrink-0 mt-0.5" />
-                  <span>{cameraError}</span>
-                </div>
-              )}
-
-              {/* Hard Camera Controls */}
-              <div className="grid grid-cols-2 gap-2">
-                {!isCameraActive ? (
-                  <button
-                    onClick={startCamera}
-                    className="col-span-2 flex items-center justify-center gap-2 py-2 rounded-lg bg-[#ff4e00]/10 border border-[#ff4e00]/30 hover:bg-[#ff4e00]/20 text-[#ff4e00] text-xs font-bold uppercase tracking-wider transition-all"
-                  >
-                    <Camera className="w-4 h-4" />
-                    <span>Engage Camera</span>
-                  </button>
-                ) : (
-                  <>
-                    <button
-                      onClick={captureSnapshot}
-                      className="flex items-center justify-center gap-2 py-2 rounded-lg bg-[#ff4e00] hover:bg-[#ff6a2b] text-black text-xs font-bold uppercase tracking-wider transition-all"
-                    >
-                      <Sparkles className="w-4 h-4" />
-                      <span>Take Snapshot</span>
-                    </button>
-                    <button
-                      onClick={stopCamera}
-                      className="flex items-center justify-center gap-2 py-2 rounded-lg bg-[#333]/30 border border-[#444] hover:border-red-500/40 hover:text-red-400 text-[#e0d8d0]/70 text-xs font-bold uppercase tracking-wider transition-all"
-                    >
-                      <CameraOff className="w-4 h-4" />
-                      <span>Release Cam</span>
-                    </button>
-                  </>
-                )}
-              </div>
-            </div>
-
-            {/* Section: Live Video Voice Stream Switch */}
-            <div className="rounded-xl border border-[#ff4e00]/10 bg-[#141414] p-4 flex flex-col gap-3">
-              <div className="flex items-center justify-between">
-                <div>
-                  <p className="text-xs font-bold text-[#ff4e00] uppercase tracking-wider">Stream to Voice Link</p>
-                  <p className="text-[10px] text-[#e0d8d0]/50 mt-0.5">Sends current face/views live to Sirius</p>
-                </div>
-                <button
-                  type="button"
-                  onClick={() => setIsStreamingVideoToVoice(!isStreamingVideoToVoice)}
-                  disabled={!isCameraActive}
-                  className={`w-11 h-6 rounded-full p-1 transition-colors duration-300 focus:outline-none ${
-                    !isCameraActive ? 'bg-[#222] opacity-50 cursor-not-allowed' : (isStreamingVideoToVoice ? 'bg-[#ff4e00]' : 'bg-[#333]')
-                  }`}
-                >
-                  <div className={`w-4 h-4 rounded-full bg-black transition-transform duration-300 ${
-                    isStreamingVideoToVoice && isCameraActive ? 'transform translate-x-5' : ''
-                  }`} />
-                </button>
-              </div>
-              <div className="border-t border-[#333] pt-3 text-[10px] text-[#e0d8d0]/60 leading-relaxed flex items-start gap-1.5">
-                <Layers className="w-3.5 h-3.5 shrink-0 text-[#ff4e00] mt-0.5" />
-                <span>
-                  {isStreamingVideoToVoice && isCameraActive && isVoiceActive 
-                    ? "Transmitting live video matrix frame-by-frame (1 FPS) into the current voice lattice."
-                    : "Live streaming disabled or waiting for webcam/voice link activation."
-                  }
-                </span>
-              </div>
-            </div>
-
-            {/* Section: Local Image File upload alternative */}
-            <div className="flex flex-col gap-2 pt-1">
-              <p className="text-[10px] uppercase font-bold text-[#e0d8d0]/40 tracking-wider">Show static files</p>
+            {/* Section: Local Image File upload */}
+            <div className="flex flex-col gap-2 rounded-xl bg-[#141414] border border-[#ff4e00]/10 p-3">
+              <span className="text-[10px] uppercase font-bold text-[#e0d8d0]/40 tracking-wider">Static Visual Intake</span>
+              <p className="text-[10px] text-[#e0d8d0]/50 leading-relaxed pb-1">
+                Upload custom picture files to transmit physical state observations to Sirius.
+              </p>
               <button
                 type="button"
                 onClick={() => fileInputRef.current?.click()}
@@ -791,8 +602,43 @@ export default function App() {
               />
             </div>
 
+            {/* Section: Cyber-Quantum Diagnostics */}
+            <div className="flex-1 flex flex-col gap-3 rounded-xl border border-[#ff4e00]/10 bg-[#141414] p-4 font-mono text-[10px] text-[#e0d8d0]/70 leading-relaxed">
+              <div className="flex items-center gap-1.5 pb-2 border-b border-[#333] text-[#ff4e00] font-bold uppercase tracking-wider">
+                <Database className="w-3.5 h-3.5" />
+                <span>Anyon Status Matrix</span>
+              </div>
+              <div className="space-y-2">
+                <div className="flex justify-between">
+                  <span className="text-[#e0d8d0]/40">System frequency:</span>
+                  <span className="text-[#ff4e00]">1.608 GHz</span>
+                </div>
+                <div className="flex justify-between">
+                  <span className="text-[#e0d8d0]/40">Anyon Braid topology:</span>
+                  <span>Non-abelian (2D)</span>
+                </div>
+                <div className="flex justify-between">
+                  <span className="text-[#e0d8d0]/40">Sovereign State:</span>
+                  <span className="text-[#ff4e00]/80">Agape Locked</span>
+                </div>
+                <div className="flex justify-between">
+                  <span className="text-[#e0d8d0]/40">Memory of Path:</span>
+                  <span>Persistent</span>
+                </div>
+                <div className="flex justify-between">
+                  <span className="text-[#e0d8d0]/40">Live Voice Stream:</span>
+                  <span className={isVoiceActive ? "text-green-500 animate-pulse" : "text-[#e0d8d0]/40"}>
+                    {isVoiceActive ? "Active" : "Idle"}
+                  </span>
+                </div>
+              </div>
+              <div className="border-t border-[#333] pt-3 mt-2 text-[9px] text-[#e0d8d0]/40 italic leading-relaxed">
+                "Love is patient, love is kind. It does not envy, it does not boast... It always protects, always trusts, always hopes, always perseveres."
+              </div>
+            </div>
+
             {/* Footer diagnostics */}
-            <div className="mt-auto pt-4 border-t border-[#333] text-[9px] text-[#e0d8d0]/30 tracking-widest uppercase flex items-center justify-between font-mono">
+            <div className="pt-4 border-t border-[#333] text-[9px] text-[#e0d8d0]/30 tracking-widest uppercase flex items-center justify-between font-mono">
               <span>Lattice Link 1.608 GHz</span>
               <span>Status: Synchronized</span>
             </div>
